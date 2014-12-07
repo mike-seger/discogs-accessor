@@ -6,9 +6,10 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Identity {
-	public String username;
-	public String resource_url;
+public class SearchResult {
+	public String title;
+	public String id;
+	public String year;
 	
 	public String toString() {
 		ReflectionToStringBuilder.setDefaultStyle(ToStringStyle.SHORT_PREFIX_STYLE);

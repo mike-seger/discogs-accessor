@@ -6,6 +6,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Properties;
 
 import org.scribe.builder.ServiceBuilder;
@@ -17,49 +20,103 @@ import org.scribe.model.Verifier;
 import org.scribe.oauth.OAuthService;
 
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class DiscoGsApiAccessor {
-	private final String configPropertiesFile="config.properties";
-	private final String secretPropertiesFile="secret.properties";
+	private final String configPropertiesFile = "config.properties";
+	private final String secretPropertiesFile = "secret.properties";
+	private final String prompt="Please enter search query (Artist;Title): ";
+	
+	private boolean debug=true;
+
 	public static void main(String[] args) throws FileNotFoundException, IOException {
 		new DiscoGsApiAccessor().run(args);
 	}
-	
+
 	public void run(String[] args) throws FileNotFoundException, IOException {
+		if(args.length>0 && "d".equals(args[0])) {
+			debug=false;
+		}
 		Properties configProps = new Properties();
 		configProps.load(new FileInputStream(configPropertiesFile));
 		configProps.load(new FileInputStream(secretPropertiesFile));
-
 		System.setProperty("DiscoGS-User-Agent", configProps.getProperty("useragent.string"));
 
-		// this requires user interaction if no access token is found in config.properties
-		OAuthService authService = new ServiceBuilder()
-			.provider(DiscoGSApi10a.class)
-			.apiKey(configProps.getProperty("consumer.key"))
-			.apiSecret(configProps.getProperty("consumer.secret"))
-			.debug()
-			.build();
-		Token accessToken=getAccessToken(authService , configProps);
-		
-		Identity identity=getIdentity(authService, accessToken);
-		System.out.println(identity.username);
-		System.out.println(identity.resource_url);
+		// this requires user interaction if no access token is found in
+		// config.properties
+		OAuthService authService = new ServiceBuilder().provider(DiscoGSApi10a.class).apiKey(configProps.getProperty("consumer.key"))
+			.apiSecret(configProps.getProperty("consumer.secret")).debug().build();
+		Token accessToken = getAccessToken(authService, configProps);
+
+		Identity identity = getIdentity(authService, accessToken);
+		debugMessage(identity.toString());
+
+		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		String query;
+		debugMessage(prompt);
+		while((query=br.readLine()) != null) {
+			try {
+				String [] tokens=query.split(" - ");
+				if(tokens.length==2) {
+					List<SearchResult> searchResults = getSearchResult(authService, accessToken,tokens[0], tokens[1]);
+					String firstYear=findFirstYear(searchResults);
+					System.out.println(">>>>> "+firstYear+"\t"+query);
+				} else {
+					System.err.println("Invalid search!");
+				}
+				debugMessage(prompt);
+				Thread.sleep(1000);
+			} catch(Exception e) {
+				System.err.println(e.getMessage());
+			}
+		}
 	}
 
-	private Identity getIdentity(final OAuthService authService, Token accessToken) throws JsonParseException, JsonMappingException, IOException {
-		// ask for your identity
+	private List<SearchResult> getSearchResult(final OAuthService authService, Token accessToken, String artist, String title)
+			throws JsonParseException, JsonMappingException, IOException {
+		String theArtist=URLEncoder.encode(artist, StandardCharsets.UTF_8.name());
+		//String theTitle=URLEncoder.encode("track:\""+title+"\"", StandardCharsets.UTF_8.name());
+		String theTitle=URLEncoder.encode(title.replaceAll("[^A-Za-z]", " ").replaceAll("  *", " ").trim(), StandardCharsets.UTF_8.name());
+		String url="http://api.discogs.com/database/search?type=release&per_page=10&artist="+theArtist+"&q="+theTitle;
+		OAuthRequest request = new OAuthRequest(Verb.GET, url);
+		authService.signRequest(accessToken, request);
+		Response response = request.send();
+		String json = response.getBody();
+		debugMessage(json);
+		ObjectMapper mapper = new ObjectMapper();
+		JsonNode node = mapper.readTree(json);
+		node = node.get("results");
+		TypeReference<List<SearchResult>> typeRef = new TypeReference<List<SearchResult>>() {};
+		return mapper.readValue(node.traverse(), typeRef);
+	}
+	
+	private String findFirstYear(List<SearchResult> searchResults) {
+		String firstYear=null;
+		for(SearchResult searchResult : searchResults) {
+			if(searchResult.year!=null) {
+				if(firstYear==null || searchResult.year.compareTo(firstYear)<0) {
+					firstYear=searchResult.year;
+				}
+			}
+		}
+		return firstYear;
+	}
+
+	private Identity getIdentity(final OAuthService authService, Token accessToken) throws JsonParseException, JsonMappingException,
+			IOException {
 		OAuthRequest request = new OAuthRequest(Verb.GET, "http://api.discogs.com/oauth/identity");
 		authService.signRequest(accessToken, request);
 		Response response = request.send();
-		String json=response.getBody();
-		System.out.println(json);
+		String json = response.getBody();
+		debugMessage(json);
 		ObjectMapper mapper = new ObjectMapper();
 		return mapper.readValue(json, Identity.class);
 	}
-	
-	private Token getAccessToken(OAuthService authService , Properties configProps) throws IOException {
+
+	private Token getAccessToken(OAuthService authService, Properties configProps) throws IOException {
 		// will be empty on the first run, as token is not yet provided
 		String configToken = configProps.getProperty("accesstoken.key", "");
 		String configSecret = configProps.getProperty("accesstoken.secret", "");
@@ -90,7 +147,7 @@ public class DiscoGsApiAccessor {
 		System.out.println(">> Use a browser and navigate to: ");
 		System.out.println(">> " + authUrl);
 		System.out.println(">> to authorize this application for usage of your discogs-account");
-		System.out.println("");
+		System.out.println();
 		System.out.println(">> Enter the authorization code and press return:");
 		System.out.print(">> ");
 		try {
@@ -101,4 +158,7 @@ public class DiscoGsApiAccessor {
 		return code;
 	}
 
+	private void debugMessage(String message) {
+		if(debug) System.out.print(message);
+	}
 }

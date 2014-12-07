@@ -1,6 +1,8 @@
 *.class
 
 secret.properties
+out.txt
+*.log
 
 # Package Files #
 *.war
