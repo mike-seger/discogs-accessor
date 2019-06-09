@@ -12,3 +12,6 @@ out.txt
 hs_err_pid*
 target
 .settings
+*~
+.idea
+*.iml

@@ -1,48 +1,40 @@
 package net128.com.discogs.accessor;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.scribe.builder.ServiceBuilder;
+import org.scribe.model.*;
+import org.scribe.oauth.OAuthService;
+
+import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Properties;
 
-import org.scribe.builder.ServiceBuilder;
-import org.scribe.model.OAuthRequest;
-import org.scribe.model.Response;
-import org.scribe.model.Token;
-import org.scribe.model.Verb;
-import org.scribe.model.Verifier;
-import org.scribe.oauth.OAuthService;
-
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 public class DiscoGsApiAccessor {
-	private final String configPropertiesFile = "config.properties";
+	private final String configPropertiesLocation = "/config.properties";
 	private final String secretPropertiesFile = "secret.properties";
 	private final String prompt="Please enter search query (Artist;Title): ";
 	
 	private boolean debug=true;
 
-	public static void main(String[] args) throws FileNotFoundException, IOException {
+	public static void main(String[] args) throws IOException {
 		new DiscoGsApiAccessor().run(args);
 	}
 
-	public void run(String[] args) throws FileNotFoundException, IOException {
+	void run(String[] args) throws IOException {
 		if(args.length>0 && "d".equals(args[0])) {
 			debug=false;
 		}
 		Properties configProps = new Properties();
-		configProps.load(new FileInputStream(configPropertiesFile));
-		configProps.load(new FileInputStream(secretPropertiesFile));
+		try (InputStream is=getClass().getResourceAsStream(configPropertiesLocation)) {
+			configProps.load(is);
+		}
+		try (InputStream is=new FileInputStream(secretPropertiesFile)) {
+			configProps.load(is);
+		}
 		System.setProperty("DiscoGS-User-Agent", configProps.getProperty("useragent.string"));
 
 		// this requires user interaction if no access token is found in
@@ -76,7 +68,7 @@ public class DiscoGsApiAccessor {
 	}
 
 	private List<SearchResult> getSearchResult(final OAuthService authService, Token accessToken, String artist, String title)
-			throws JsonParseException, JsonMappingException, IOException {
+			throws IOException {
 		String theArtist=URLEncoder.encode(artist, StandardCharsets.UTF_8.name());
 		//String theTitle=URLEncoder.encode("track:\""+title+"\"", StandardCharsets.UTF_8.name());
 		String theTitle=URLEncoder.encode(title.replaceAll("[^A-Za-z]", " ").replaceAll("  *", " ").trim(), StandardCharsets.UTF_8.name());
@@ -105,8 +97,7 @@ public class DiscoGsApiAccessor {
 		return firstYear;
 	}
 
-	private Identity getIdentity(final OAuthService authService, Token accessToken) throws JsonParseException, JsonMappingException,
-			IOException {
+	private Identity getIdentity(final OAuthService authService, Token accessToken) throws  IOException {
 		OAuthRequest request = new OAuthRequest(Verb.GET, "http://api.discogs.com/oauth/identity");
 		authService.signRequest(accessToken, request);
 		Response response = request.send();
@@ -140,10 +131,10 @@ public class DiscoGsApiAccessor {
 		return accessToken;
 	}
 
-	public static String getDiscoGSAuthCodeFromCommandline(String authUrl) {
+	private String getDiscoGSAuthCodeFromCommandline(String authUrl) {
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 		String code = null;
-		System.out.println("");
+		System.out.println();
 		System.out.println(">> Use a browser and navigate to: ");
 		System.out.println(">> " + authUrl);
 		System.out.println(">> to authorize this application for usage of your discogs-account");
