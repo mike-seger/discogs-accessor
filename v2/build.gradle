@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+}
+
+group 'com.net128'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://raw.github.com/hypothermic/javacogs/mvn-repo/"
+    }
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile group: 'nl.hypothermic', name: 'javacogs', version: '1.0.18+'
+}
+
