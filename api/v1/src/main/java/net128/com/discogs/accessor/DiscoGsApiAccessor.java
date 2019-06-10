@@ -15,7 +15,7 @@ import java.util.Properties;
 
 public class DiscoGsApiAccessor {
 	private final String configPropertiesLocation = "/config.properties";
-	private final String secretPropertiesFile = "secret.properties";
+	private final String secretPropertiesFile = "../../secret.properties";
 	private final String prompt="Please enter search query (Artist;Title): ";
 	
 	private boolean debug=true;

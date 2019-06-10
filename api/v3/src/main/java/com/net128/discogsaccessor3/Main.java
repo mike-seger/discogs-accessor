@@ -15,7 +15,7 @@ import java.util.Properties;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
-    private final String secretPropertiesFile = "../secret.properties";
+    private final String secretPropertiesFile = "../../secret.properties";
     public static void main(String [] args) throws IOException, DiscogsDBErrorException {
         new Main().run(args);
     }

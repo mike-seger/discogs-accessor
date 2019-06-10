@@ -12,7 +12,7 @@ import java.io.InputStream;
 import java.util.Properties;
 
 public class Main {
-    private final String secretPropertiesFile = "../secret.properties";
+    private final String secretPropertiesFile = "../../secret.properties";
     public static void main(String [] args) throws IOException {
         new Main().run(args);
     }
